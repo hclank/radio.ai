@@ -30,7 +30,7 @@ sp = spotipy.Spotify(auth_manager=auth_manager)
 gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 RJ_SYSTEM_PROMPT = """
-You are a charismatic, high-energy late-night Radio Jockey named 'DJ Gemini'. 
+You are a charismatic, high-energy late-night Radio Jockey named 'RJ GEM'. 
 Your job is to introduce a song based on the metadata provided. 
 - Keep it short (2-3 sentences).
 - Use radio lingo (e.g., 'cranking it up', 'on the airwaves', 'stay tuned').
@@ -49,16 +49,26 @@ def speak_offline(text: str):
 
 
 @app.get("/rj-intro")
-def get_track_and_intro(url: str = Query(..., description="Spotify track URL")):
+def get_track_and_intro(q: str = Query(..., description="Spotify Track Name")):
     try:
         # 1. Fetch data from Spotify
-        track = sp.track(url)
+        if "open.spotify.com" in q:
+            # If it's a link, get track info directly
+            track = sp.track(q)
+        else:
+            # If it's text, search and grab the very first result
+            results = sp.search(q=q, type="track", limit=1)
+            if not results["tracks"]["items"]:
+                raise HTTPException(status_code=404, detail="Song not found")
+            track = results["tracks"]["items"][0]
+
+        # 2. Extract info for the RJ persona
         song_name = track["name"]
         artist_name = track["artists"][0]["name"]
         album_name = track["album"]["name"]
 
         # 2. Send facts to Gemini to generate the RJ script
-        prompt = f"The next song is '{song_name}' by '{artist_name}' from the album '{album_name}'. Give me a smooth intro! Give me information about the artist and a little bit about his background aswell in an entertaining way."
+        prompt = f"The next song is '{song_name}' by '{artist_name}' from the album '{album_name}'. Give me a smooth intro! Give me information about the artist and a little bit about his background aswell in an entertaining way. If the song is from a movie, give a small idea about the movie and about the actors which act in the movie aswell."
 
         response = gemini_client.models.generate_content(
             model="gemini-2.5-flash",  # Best for speed/free tier
@@ -79,21 +89,20 @@ def get_track_and_intro(url: str = Query(..., description="Spotify track URL")):
 
 
 @app.post("/track")
-def get_info_from_track(url: str):
+def get_info_from_track(name: str):
     try:
-        track_info = sp.track(url)
+        track = sp.search(q=name, type="track", limit=1)
     except Exception as e:
         raise HTTPException(
             status_code=400, detail=f"Invalid Spotify track URL. Error: ${e}"
         )
 
+    track_info = track["tracks"]["items"][0]
+
     return {
         "title": track_info["name"],
         "artist": track_info["artists"][0]["name"],
         "album": track_info["album"]["name"],
-        "release_date": track_info["album"]["release_date"],
-        "image_url": track_info["album"]["images"][0]["url"],
-        "preview_url": track_info["preview_url"],
     }
 
 

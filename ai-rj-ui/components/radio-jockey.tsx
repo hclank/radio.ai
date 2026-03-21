@@ -14,7 +14,7 @@ interface Message {
 }
 
 export default function RadioJockey() {
-  const [spotifyUrl, setSpotifyUrl] = useState("");
+  const [trackName, setTrackName] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -69,16 +69,16 @@ export default function RadioJockey() {
 
   const handleSubmitSong = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(spotifyUrl);
+    console.log(trackName);
 
-    if (!spotifyUrl.trim()) return;
+    if (!trackName.trim()) return;
 
     try {
       setIsLoading(true);
 
       // Extract song info
       const songInfo = await fetch(
-        `http://127.0.0.1:8000/rj-intro?url=${encodeURIComponent(spotifyUrl)}`,
+        `http://127.0.0.1:8000/rj-intro?q=${trackName}`,
       ).then((res) => res.json());
 
       console.log(songInfo.rj_intro);
@@ -90,14 +90,14 @@ export default function RadioJockey() {
         // Add user message
         const userMessage: Message = {
           type: "user",
-          text: spotifyUrl,
+          text: trackName,
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, userMessage]);
 
         // Generate AI response
         await generateAIResponse(songInfo.rj_intro);
-        setSpotifyUrl("");
+        setTrackName("");
       } else {
         alert("Could not parse Spotify URL. Please provide a valid track URL.");
       }
@@ -181,10 +181,10 @@ export default function RadioJockey() {
             <h2 className="mb-4 text-lg font-semibold">Add a Song</h2>
             <form onSubmit={handleSubmitSong} className="flex gap-3">
               <Input
-                type="url"
+                type="text"
                 placeholder="Paste Spotify track URL..."
-                value={spotifyUrl}
-                onChange={(e) => setSpotifyUrl(e.target.value)}
+                value={trackName}
+                onChange={(e) => setTrackName(e.target.value)}
                 className="flex-1 bg-secondary text-foreground placeholder:text-muted-foreground"
               />
               <Button
