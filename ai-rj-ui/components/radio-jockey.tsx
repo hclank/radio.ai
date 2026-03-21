@@ -15,6 +15,7 @@ interface Message {
 
 export default function RadioJockey() {
   const [trackName, setTrackName] = useState("");
+  const [uri, setUri] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -86,6 +87,7 @@ export default function RadioJockey() {
       if (songInfo) {
         setCurrentSongInfo(songInfo);
         setIsPlaying(true);
+        setUri(songInfo.metadata.uri);
 
         // Add user message
         const userMessage: Message = {
@@ -107,6 +109,10 @@ export default function RadioJockey() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const playSpotifySong = async (uri: string) => {
+    await fetch(`http://127.0.0.1/play-song?uri=${encodeURIComponent(uri)}`);
   };
 
   const generateAIResponse = async (songInfo: any) => {
@@ -146,6 +152,7 @@ export default function RadioJockey() {
 
     utterance.onend = () => {
       setIsSpeaking(false);
+      playSpotifySong(uri);
     };
 
     synth.current.speak(utterance);

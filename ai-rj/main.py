@@ -48,6 +48,15 @@ def speak_offline(text: str):
     engine.runAndWait()
 
 
+@app.get("/play-song")
+def play_song(track_uri: str):
+    try:
+        sp.start_playback(uris=[track_uri])
+        return {"status": "Playing!"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/rj-intro")
 def get_track_and_intro(q: str = Query(..., description="Spotify Track Name")):
     try:
@@ -66,6 +75,7 @@ def get_track_and_intro(q: str = Query(..., description="Spotify Track Name")):
         song_name = track["name"]
         artist_name = track["artists"][0]["name"]
         album_name = track["album"]["name"]
+        uri = results["uri"]
 
         # 2. Send facts to Gemini to generate the RJ script
         prompt = f"The next song is '{song_name}' by '{artist_name}' from the album '{album_name}'. Give me a smooth intro! Give me information about the artist and a little bit about his background aswell in an entertaining way. If the song is from a movie, give a small idea about the movie and about the actors which act in the movie aswell."
@@ -80,7 +90,12 @@ def get_track_and_intro(q: str = Query(..., description="Spotify Track Name")):
         )
 
         return {
-            "metadata": {"song": song_name, "artist": artist_name, "album": album_name},
+            "metadata": {
+                "song": song_name,
+                "artist": artist_name,
+                "album": album_name,
+                "uri": uri,
+            },
             "rj_intro": response.text.strip(),
         }
 
