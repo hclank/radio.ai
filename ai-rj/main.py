@@ -1,0 +1,103 @@
+import os
+import spotipy
+import pyttsx3
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from spotipy.oauth2 import SpotifyClientCredentials
+import google.genai as genai
+from google.genai import types
+from dotenv import load_dotenv
+
+load_dotenv()
+
+app = FastAPI()
+
+origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+auth_manager = SpotifyClientCredentials(
+    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+)
+sp = spotipy.Spotify(auth_manager=auth_manager)
+gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+RJ_SYSTEM_PROMPT = """
+You are a charismatic, high-energy late-night Radio Jockey named 'DJ Gemini'. 
+Your job is to introduce a song based on the metadata provided. 
+- Keep it short (2-3 sentences).
+- Use radio lingo (e.g., 'cranking it up', 'on the airwaves', 'stay tuned').
+- Be enthusiastic about the artist and the vibe of the album.
+"""
+
+
+def speak_offline(text: str):
+    engine = pyttsx3.init()
+
+    engine.setProperty("rate", 175)
+    engine.setProperty("volume", 0.9)
+
+    engine.say(text)
+    engine.runAndWait()
+
+
+@app.get("/rj-intro")
+def get_track_and_intro(url: str = Query(..., description="Spotify track URL")):
+    try:
+        # 1. Fetch data from Spotify
+        track = sp.track(url)
+        song_name = track["name"]
+        artist_name = track["artists"][0]["name"]
+        album_name = track["album"]["name"]
+
+        # 2. Send facts to Gemini to generate the RJ script
+        prompt = f"The next song is '{song_name}' by '{artist_name}' from the album '{album_name}'. Give me a smooth intro! Give me information about the artist and a little bit about his background aswell in an entertaining way."
+
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",  # Best for speed/free tier
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=RJ_SYSTEM_PROMPT,
+                temperature=0.8,  # Higher temperature = more creative/random RJ talk
+            ),
+        )
+
+        return {
+            "metadata": {"song": song_name, "artist": artist_name, "album": album_name},
+            "rj_intro": response.text.strip(),
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/track")
+def get_info_from_track(url: str):
+    try:
+        track_info = sp.track(url)
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid Spotify track URL. Error: ${e}"
+        )
+
+    return {
+        "title": track_info["name"],
+        "artist": track_info["artists"][0]["name"],
+        "album": track_info["album"]["name"],
+        "release_date": track_info["album"]["release_date"],
+        "image_url": track_info["album"]["images"][0]["url"],
+        "preview_url": track_info["preview_url"],
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
