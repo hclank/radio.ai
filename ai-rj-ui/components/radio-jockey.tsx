@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Mic, Pause, Play, Send } from "lucide-react";
+import WaveMarquee from "./music-marquee";
 import "@/app/globals.css";
 
 interface Message {
@@ -38,36 +39,6 @@ export default function RadioJockey() {
     scrollToBottom();
   }, [messages]);
 
-  const extractSpotifyInfo = async (url: string) => {
-    // Parse Spotify URL to get track ID
-    const trackMatch = url.match(/track\/([a-zA-Z0-9]+)/);
-    if (!trackMatch) {
-      return null;
-    }
-
-    // For demo purposes, return mock data
-    // In production, you'd use the Spotify API
-    const mockSongs: Record<string, any> = {
-      "3n3Ppam7vgaVa1iaRUc9Lp": {
-        title: "As It Was",
-        artist: "Harry Styles",
-      },
-      "4cOdK2wGLETKBW3PvgPWqLp": {
-        title: "Levitating",
-        artist: "Dua Lipa",
-      },
-      "2takcwFFpEpqLacADreJ7N": {
-        title: "Blinding Lights",
-        artist: "The Weeknd",
-      },
-    };
-
-    const trackId = trackMatch[1];
-    return (
-      mockSongs[trackId] || { title: "Unknown Track", artist: "Unknown Artist" }
-    );
-  };
-
   const handleSubmitSong = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log(trackName);
@@ -87,7 +58,6 @@ export default function RadioJockey() {
       if (songInfo) {
         setCurrentSongInfo(songInfo);
         setIsPlaying(true);
-        setUri(songInfo.metadata.uri);
 
         // Add user message
         const userMessage: Message = {
@@ -109,10 +79,6 @@ export default function RadioJockey() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const playSpotifySong = async (uri: string) => {
-    await fetch(`http://127.0.0.1/play-song?uri=${encodeURIComponent(uri)}`);
   };
 
   const generateAIResponse = async (songInfo: any) => {
@@ -152,7 +118,6 @@ export default function RadioJockey() {
 
     utterance.onend = () => {
       setIsSpeaking(false);
-      playSpotifySong(uri);
     };
 
     synth.current.speak(utterance);
@@ -264,6 +229,7 @@ export default function RadioJockey() {
           )}
         </div>
       </div>
+      {/* <WaveMarquee speed={15} /> */}
     </div>
   );
 }
